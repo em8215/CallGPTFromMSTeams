@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  callgptapi
+
+  Sample SAM Template for callgptapi
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 128
+
+Resources:
+  Table:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: conversation_id
+        Type: String
+      TableName: ConversationTable
+
+  CallGPTAPIFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CallGPTAPIFunctionPolicies
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:List*
+                  - dynamodb:DescribeReservedCapacity*
+                  - dynamodb:DescribeLimits
+                  - dynamodb:DescribeTimeToLive
+                  - kms:Decrypt
+                  - ssm:GetParameter
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - dynamodb:BatchGet*
+                  - dynamodb:Get*
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:BatchWrite*
+                  - dynamodb:Delete*
+                  - dynamodb:Update*
+                  - dynamodb:PutItem
+                Resource: !GetAtt Table.Arn
+
+  CallGPTAPIFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: callgptapi/
+      Handler: app.lambda_handler
+      Runtime: python3.10
+      Timeout: 60
+      Architectures:
+        - x86_64
+      Role: !GetAtt CallGPTAPIFunctionRole.Arn
+      Layers: 
+        - arn:aws:lambda:ap-northeast-1:133490724326:layer:AWS-Parameters-and-Secrets-Lambda-Extension:4
+      Events:
+        CallGPTAPI:
+          Type: Api
+          Properties:
+            Path: /callgptapi
+            Method: post
+
+  CallGPTAPIFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${CallGPTAPIFunction}
+      RetentionInDays: 14
+
+Outputs:
+  CallGPTAPIApi:
+    Description: "API Gateway endpoint URL for Prod stage for callgptapi function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/callgptapi/"
+  CallGPTAPIFunction:
+    Description: "CallGPTAPI Lambda Function ARN"
+    Value: !GetAtt CallGPTAPIFunction.Arn
+  CallGPTAPIFunctionIamRole:
+    Description: "Implicit IAM Role created for CallGPTAPI function"
+    Value: !GetAtt CallGPTAPIFunctionRole.Arn

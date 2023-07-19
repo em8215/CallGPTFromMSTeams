@@ -1,0 +1,3 @@
+boto3==1.26.140
+dataclasses-json==0.5.7
+requests==2.31.0
